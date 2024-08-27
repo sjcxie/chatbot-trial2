@@ -19,7 +19,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 st.title("💬 Cocobot Evaluation Study")
 st.write(
     "This is a cocobot prototype solely for evaluation purposes. "
-    "After you complete a chat with the cocobot, please don't forget to click the UPLOAD CHAT HISTORY button."
+    "First enter the participant ID that is provided to you."
+    "After you complete a chat with the cocobot, please don't forget to enter either 'save' or 'stop' ."
 )
 
 if user_PID := st.text_input("What is your participant ID?"):
@@ -71,7 +72,7 @@ if user_PID := st.text_input("What is your participant ID?"):
     if "messages" not in st.session_state:
         st.session_state.messages = [
             {"role": "user", "content": "Hello."},
-            {"role": "assistant", "content": "Hello there! How can I assist you today?"},
+            {"role": "assistant", "content": "Hello there! How are you feeling today?"},
         ]
 
     # Display the existing chat messages via `st.chat_message`.
@@ -83,9 +84,9 @@ if user_PID := st.text_input("What is your participant ID?"):
 
     # Create a chat input field to allow the user to enter a message. This will display
     # automatically at the bottom of the page.
-    if user_input := st.chat_input("Enter your input here. Enter 'SAVE' to save the chat history."):
+    if user_input := st.chat_input("Enter your input here. Enter 'SAVE' or 'STOP' if you want to stop the conversation."):
         
-        if user_input=="SAVE" or user_input=="save":
+        if user_input=="SAVE" or user_input=="save" or user_input=="STOP" or user_input=="stop":
             st.write("The button was clicked. Running code to upload chat history.")
         
             file_name = "Chat_History_P{PID}.csv".format(PID=user_PID)
@@ -130,7 +131,7 @@ if user_PID := st.text_input("What is your participant ID?"):
             st.info("You have completed {} of turn so far.".format(int(chat_history_df.shape[0]/2)))
             
             if (chat_history_df.shape[0]/2 > 8):
-                st.info("""You can enter "SAVE" to upload the chat history and conclude this session.""")
+                st.info("""When you are ready to stop the conversation, you can enter "SAVE" to upload the chat history and conclude this session.""")
 
         
         
