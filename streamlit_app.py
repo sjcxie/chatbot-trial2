@@ -12,7 +12,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import AIMessage, HumanMessage
 
-from st_files_connection import FilesConnection
 from gcloud import storage
 from oauth2client.service_account import ServiceAccountCredentials
 
