@@ -2,4 +2,6 @@ streamlit
 openai
 langchain
 langchain-community
-python-dotenv
+
+gcsfs==2024.6.1
+st-files-connection
