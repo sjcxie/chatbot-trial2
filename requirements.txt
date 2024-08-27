@@ -3,5 +3,6 @@ openai
 langchain
 langchain-community
 
-gcsfs==2024.6.1
-st-files-connection
+# gcsfs==2024.6.1
+# st-files-connection
+gcloud

@@ -13,108 +13,129 @@ from langchain.memory import ConversationBufferMemory
 from langchain.schema import AIMessage, HumanMessage
 
 from st_files_connection import FilesConnection
+from gcloud import storage
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Show title and description.
-st.title("💬 Cocobot evaluation study")
+st.title("💬 Cocobot Evaluation Study")
 st.write(
     "This is a cocobot prototype solely for evaluation purposes. "
-    "To use this app, you need to provide an OpenAI API key, which is provided to you. "
+    "After you complete a chat with the cocobot, please don't forget to click the UPLOAD CHAT HISTORY button."
 )
+
+if user_PID := st.text_input("What is your participant ID?"):
+    st.info("Thank you for providing your participant ID.")
 
 # Ask user for their OpenAI API key via `st.text_input`.
 # Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
 # via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
 
-
-# openai_api_key = st.secrets["API_KEY"]
-
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-
-
-
-# Create an OpenAI client.
-llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key)
-
-# system and human prompts
-# read system prompt
-# Specify the path to your .txt file
-file_path = 'system_prompt.txt'
-
-# Open the file and read its contents into a string variable
-with open(file_path, 'r') as file:
-    system_prompt_text = file.read()
-system_message_template = system_prompt_text
-human_message_template = """{human_input}"""
-system_prompt_template = SystemMessagePromptTemplate.from_template(template=system_message_template)
-human_prompt_template = HumanMessagePromptTemplate.from_template(template=human_message_template)
-chat_prompt_template = ChatPromptTemplate.from_messages(
-[
-    system_prompt_template,
-    MessagesPlaceholder(variable_name="chat_history"), # dynamic insertion of past conversation history
-    human_prompt_template,
-]
-)
-# st.info(system_prompt_text)
-
-# set up memory buffer for the unadabot
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, llm=llm)
-
-memory.clear()
-# create a chatbot llm chain
-botchain = LLMChain(
-    llm=llm,
-    prompt=chat_prompt_template,
-    verbose=False,
-    output_parser=StrOutputParser(),
-    memory=memory,
-)
-
-# Create a session state variable to store the chat messages. This ensures that the
-# messages persist across reruns.
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "user", "content": "Hello."},
-        {"role": "assistant", "content": "Hello there! How can I assist you today?"},
+    openai_api_key = st.secrets["API_KEY"]
+     # Create an OpenAI client.
+    llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key)
+    
+    # system and human prompts
+    # read system prompt
+    # Specify the path to your .txt file
+    file_path = 'system_prompt.txt'
+    # Open the file and read its contents into a string variable
+    with open(file_path, 'r') as file:
+        system_prompt_text = file.read()
+    system_message_template = system_prompt_text
+    human_message_template = """{human_input}"""
+    system_prompt_template = SystemMessagePromptTemplate.from_template(template=system_message_template)
+    human_prompt_template = HumanMessagePromptTemplate.from_template(template=human_message_template)
+    chat_prompt_template = ChatPromptTemplate.from_messages(
+    [
+        system_prompt_template,
+        MessagesPlaceholder(variable_name="chat_history"), # dynamic insertion of past conversation history
+        human_prompt_template,
     ]
+    )
+    # st.info(system_prompt_text)
 
-# Display the existing chat messages via `st.chat_message`.
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# Create a chat input field to allow the user to enter a message. This will display
-# automatically at the bottom of the page.
-if user_input := st.chat_input("Enter your input here."):
+    # set up memory buffer for the unadabot
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, llm=llm)
     
-    # Store and display the current prompt.
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
+    memory.clear()
+    # create a chatbot llm chain
+    botchain = LLMChain(
+        llm=llm,
+        prompt=chat_prompt_template,
+        verbose=False,
+        output_parser=StrOutputParser(),
+        memory=memory,
+    )
 
-    # Generate a response using the OpenAI API.
-    botchain.predict(human_input=user_input)
-    bot_response = memory.buffer[-1].content
+    # Create a session state variable to store the chat messages. This ensures that the
+    # messages persist across reruns.
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "user", "content": "Hello."},
+            {"role": "assistant", "content": "Hello there! How can I assist you today?"},
+        ]
 
-    # Stream the response to the chat using `st.write_stream`, then store it in 
-    # session state.
-    with st.chat_message("assistant"):
-        response = st.write(bot_response)
-    st.session_state.messages.append({"role": "assistant", "content": bot_response})
+    # Display the existing chat messages via `st.chat_message`.
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    df = pd.DataFrame(st.session_state.messages)
-    csv = df.to_csv(index=False)
-    
-    # Let the user know how many turns they have completed
-    st.info("You have completed {} of turn so far.".format(int(df.shape[0]/2)))
+    chat_history_df = pd.DataFrame(st.session_state.messages)
 
-    if (df.shape[0]/2 > 5):
-        st.download_button(
-        "Download chat history", 
-        data = csv,
-        file_name="messages.csv",
-        mime="text/csv",
-        )
+    # Create a chat input field to allow the user to enter a message. This will display
+    # automatically at the bottom of the page.
+    if user_input := st.chat_input("Enter your input here. Enter 'SAVE' to save the chat history."):
+        
+        if user_input=="SAVE" or user_input=="save":
+            st.write("The button was clicked. Running code to upload chat history.")
+        
+            file_name = "Chat_History_P{PID}.csv".format(PID=user_PID)
+            st.write("file name is "+file_name)
+            chat_history_df.to_csv(file_name, index=False)
+            credentials_dict = {
+            'type': st.secrets.gcs["type"],
+            'client_id': st.secrets.gcs["client_id"],
+            'client_email': st.secrets.gcs["client_email"],
+            'private_key': st.secrets.gcs["private_key"],
+            'private_key_id': st.secrets.gcs["private_key_id"],
+            }
+            credentials = ServiceAccountCredentials.from_json_keyfile_dict(
+                credentials_dict
+            )
+            client = storage.Client(credentials=credentials, project='galvanic-fort-430920-e8')
+            bucket = client.get_bucket('streamlit-bucket-bot-eval')
+            blob = bucket.blob(file_name)
+            blob.upload_from_filename(file_name)
+            st.write("Chat history was uploaded. You can safely exit this chat now.")
+        
+        else:
 
-    if (df.shape[0]/2 > 10):
-        st.info("Don't forget to click 'Download chat history' to save a copy of the chat history and send it to the research team.")
-    
+            # Store and display the current prompt.
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            with st.chat_message("user"):
+                st.markdown(user_input)
+
+            # Generate a response using the OpenAI API.
+            botchain.predict(human_input=user_input)
+            bot_response = memory.buffer[-1].content
+
+            # Stream the response to the chat using `st.write_stream`, then store it in 
+            # session state.
+            with st.chat_message("assistant"):
+                response = st.write(bot_response)
+            st.session_state.messages.append({"role": "assistant", "content": bot_response})
+
+            chat_history_df = pd.DataFrame(st.session_state.messages)
+            
+            # Let the user know how many turns they have completed
+            st.info("You have completed {} of turn so far.".format(int(chat_history_df.shape[0]/2)))
+            
+            if (chat_history_df.shape[0]/2 > 8):
+                st.info("""You can enter "SAVE" to upload the chat history and conclude this session.""")
+
+        
+        
+        
+            
+
+            
