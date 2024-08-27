@@ -28,7 +28,7 @@ st.write(
 
 # # Get the OpenAI API key from the environment variable
 # openai_api_key = os.getenv("OPENAI_API_KEY")
-openai_api_key = st.secrets["OpenAI_Key"]
+openai_api_key = st.secrets["API_KEY"]
 
 if not openai_api_key:
     st.info("Please add your OpenAI API key to continue.", icon="🗝️")
