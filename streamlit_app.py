@@ -10,7 +10,11 @@ from langchain_core.prompts import MessagesPlaceholder
 from langchain.chains import LLMChain, ConversationChain
 from langchain_core.output_parsers import StrOutputParser
 from langchain.memory import ConversationBufferMemory
+from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.schema import AIMessage, HumanMessage
+from langchain_community.chat_message_histories import (
+    StreamlitChatMessageHistory,
+)
 
 from gcloud import storage
 from oauth2client.service_account import ServiceAccountCredentials
@@ -34,7 +38,7 @@ if not user_PID:
 else:
     openai_api_key = st.secrets["API_KEY"]
         # Create an OpenAI client.
-    llm = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
+    llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key)
 
     # system and human prompts
     # read system prompt
@@ -53,21 +57,25 @@ else:
         ("human", "{input}"),
     ])
 
-    # set up memory buffer for the unadabot
-    memory = ConversationBufferMemory(return_messages=True)
-
-    memory.clear()
+    # set up history memory
+    msgs = StreamlitChatMessageHistory(key="chat_history")
 
     # create a chatbot llm chain
-    botchain = ConversationChain(
-        llm=llm,
-        prompt=chat_prompt_template,
-        verbose=False,
-        output_parser=StrOutputParser(),
-        memory=memory,
-        input_key="input",
-        output_key="response"
+    chain = chat_prompt_template | llm
+    chain_with_history = RunnableWithMessageHistory(
+        chain,
+        lambda session_id: msgs,  # Always return the instance created earlier
+        input_messages_key="input",
+        # output_messages_key="content",
+        history_messages_key="history",
     )
+
+    # botchain = LLMChain(
+    # llm=llm,
+    # prompt=chat_prompt_template,
+    # verbose=False,
+    # output_parser=StrOutputParser()
+    # )
 
     # Create a session state variable to store the chat messages. This ensures that the
     # messages persist across reruns.
@@ -88,6 +96,9 @@ else:
     # automatically at the bottom of the page.
     if user_input := st.chat_input("Enter your input here. Enter 'SAVE' or 'STOP' if you want to stop the conversation."):
         
+        
+
+
         if user_input=="SAVE" or user_input=="save" or user_input=="STOP" or user_input=="stop":
             file_name = "Chat_History_P{PID}.csv".format(PID=user_PID)
             st.write("file name is "+file_name)
@@ -118,15 +129,20 @@ else:
             )
             
         else:
-
+            
             # Store and display the current prompt.
             st.session_state.messages.append({"role": "user", "content": user_input})
+            # msgs.add_user_message(user_input)
             with st.chat_message("user"):
                 st.markdown(user_input)
 
             # Generate a response using the OpenAI API.
-            ai_response = botchain({"input": user_input})
-            bot_response = ai_response["response"]
+            # ai_response = botchain({"input": user_input})
+
+            config = {"configurable": {"session_id": "any"}}
+            ai_response = chain_with_history.invoke({"input": user_input}, config)
+            bot_response = ai_response.content
+            # msgs.add_ai_message(bot_response)
 
             # Stream the response to the chat using `st.write_stream`, then store it in 
             # session state.
@@ -142,7 +158,6 @@ else:
             if (chat_history_df.shape[0]/2 > 8):
                 st.info("""When you are ready to stop the conversation, you can enter "SAVE" to upload the chat history and conclude this session.""")
 
-        
         
         
             
