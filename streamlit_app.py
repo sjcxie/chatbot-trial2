@@ -7,7 +7,7 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain.prompts import PromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain_core.prompts import MessagesPlaceholder
-from langchain.chains import LLMChain
+from langchain.chains import LLMChain, ConversationChain
 from langchain_core.output_parsers import StrOutputParser
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import AIMessage, HumanMessage
@@ -32,7 +32,7 @@ if user_PID := st.text_input("What is your participant ID?"):
 
     openai_api_key = st.secrets["API_KEY"]
      # Create an OpenAI client.
-    llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key)
+    llm = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
     
     # system and human prompts
     # read system prompt
@@ -41,30 +41,30 @@ if user_PID := st.text_input("What is your participant ID?"):
     # Open the file and read its contents into a string variable
     with open(file_path, 'r') as file:
         system_prompt_text = file.read()
-    system_message_template = system_prompt_text
-    human_message_template = """{human_input}"""
-    system_prompt_template = SystemMessagePromptTemplate.from_template(template=system_message_template)
-    human_prompt_template = HumanMessagePromptTemplate.from_template(template=human_message_template)
-    chat_prompt_template = ChatPromptTemplate.from_messages(
-    [
-        system_prompt_template,
-        MessagesPlaceholder(variable_name="chat_history"), # dynamic insertion of past conversation history
-        human_prompt_template,
-    ]
-    )
-    # st.info(system_prompt_text)
+
+    # human_message_template = """{human_input}"""
+    # system_prompt_template = SystemMessagePromptTemplate.from_template(template=system_message_template)
+    # human_prompt_template = HumanMessagePromptTemplate.from_template(template=human_message_template)
+    chat_prompt_template = ChatPromptTemplate.from_messages([
+        ("system", system_prompt_text),
+        MessagesPlaceholder(variable_name="history"), # dynamic insertion of past conversation history
+        ("human", "{input}"),
+    ])
 
     # set up memory buffer for the unadabot
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, llm=llm)
+    memory = ConversationBufferMemory(return_messages=True)
     
     memory.clear()
+    
     # create a chatbot llm chain
-    botchain = LLMChain(
+    botchain = ConversationChain(
         llm=llm,
         prompt=chat_prompt_template,
         verbose=False,
         output_parser=StrOutputParser(),
         memory=memory,
+        input_key="input",
+        output_key="response"
     )
 
     # Create a session state variable to store the chat messages. This ensures that the
@@ -116,8 +116,8 @@ if user_PID := st.text_input("What is your participant ID?"):
                 st.markdown(user_input)
 
             # Generate a response using the OpenAI API.
-            botchain.predict(human_input=user_input)
-            bot_response = memory.buffer[-1].content
+            ai_response = botchain({"input": user_input})
+            bot_response = ai_response["response"]
 
             # Stream the response to the chat using `st.write_stream`, then store it in 
             # session state.
