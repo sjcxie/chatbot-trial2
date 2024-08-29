@@ -38,7 +38,7 @@ if not user_PID:
 else:
     openai_api_key = st.secrets["API_KEY"]
         # Create an OpenAI client.
-    llm = ChatOpenAI(model="gpt-4o-mini", api_key=openai_api_key)
+    llm = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
 
     # system and human prompts
     # read system prompt
