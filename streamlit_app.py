@@ -17,23 +17,25 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 # Show title and description.
 st.title("💬 Cocobot Evaluation Study")
-st.write(
-    "This is a cocobot prototype solely for evaluation purposes. "
-    "First enter the participant ID that is provided to you."
-    "After you complete a chat with the cocobot, please don't forget to enter either 'save' or 'stop' ."
-)
+st.write("This is a cocobot prototype solely for evaluation purposes.")
+st.write("First, enter the participant ID that is provided to you.")
+st.info("IMPORTANT: After you complete a chat with the cocobot, please don't forget to enter either 'SAVE' or 'STOP' to save and upload your chat history. You will also see a button to download a local copy.")
 
-if user_PID := st.text_input("What is your participant ID?"):
-    st.info("Thank you for providing your participant ID.")
+
 
 # Ask user for their OpenAI API key via `st.text_input`.
 # Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
 # via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
 
+user_PID = st.text_input("What is your participant ID?")
+if not user_PID:
+    st.write("You participant ID should be given by the research team.")
+
+else:
     openai_api_key = st.secrets["API_KEY"]
-     # Create an OpenAI client.
+        # Create an OpenAI client.
     llm = ChatOpenAI(model="gpt-4o", api_key=openai_api_key)
-    
+
     # system and human prompts
     # read system prompt
     # Specify the path to your .txt file
@@ -53,9 +55,9 @@ if user_PID := st.text_input("What is your participant ID?"):
 
     # set up memory buffer for the unadabot
     memory = ConversationBufferMemory(return_messages=True)
-    
+
     memory.clear()
-    
+
     # create a chatbot llm chain
     botchain = ConversationChain(
         llm=llm,
@@ -87,10 +89,9 @@ if user_PID := st.text_input("What is your participant ID?"):
     if user_input := st.chat_input("Enter your input here. Enter 'SAVE' or 'STOP' if you want to stop the conversation."):
         
         if user_input=="SAVE" or user_input=="save" or user_input=="STOP" or user_input=="stop":
-            st.write("The button was clicked. Running code to upload chat history.")
-        
             file_name = "Chat_History_P{PID}.csv".format(PID=user_PID)
             st.write("file name is "+file_name)
+            
             chat_history_df.to_csv(file_name, index=False)
             credentials_dict = {
             'type': st.secrets.gcs["type"],
@@ -107,7 +108,15 @@ if user_PID := st.text_input("What is your participant ID?"):
             blob = bucket.blob(file_name)
             blob.upload_from_filename(file_name)
             st.write("Chat history was uploaded. You can safely exit this chat now.")
-        
+
+            csv = chat_history_df.to_csv()
+            st.download_button(
+                label="Click here to also download a local copy of your chat history.",
+                data=csv,
+                file_name=file_name,
+                mime="text/csv",
+            )
+            
         else:
 
             # Store and display the current prompt.
